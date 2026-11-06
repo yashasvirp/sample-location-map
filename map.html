@@ -21,7 +21,7 @@ L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_M
 
 // 2. CORRECT INDIA BORDER - from BharAtlas
 // File must be named india-border.geojson in same folder
-fetch('india-border.geojson')
+fetch('india_boundary.geojson')
   .then(r => {
     if(!r.ok) throw new Error('BharAtlas file not found');
     return r.json();
