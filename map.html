@@ -11,16 +11,17 @@
 <div id="map"></div>
 <script>
 const CSV_URL = "https://docs.google.com/spreadsheets/d/1D8g1RnNNLLKXFqFl2rs3T8pedzyoVAMYPNa2VfYox2s/export?format=csv";
-var map = L.map('map').setView([17.385, 78.4867], 13);
+var map = L.map('map', { maxZoom: 19, minZoom: 3 }).setView([17.385, 78.4867], 13);
 
-// 1. BASE MAP - Esri streets (loads fast, no grey screen)
-L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+// 1. BASE MAP - Carto Voyager (works at full zoom, no grey tiles)
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
   attribution: 'Tiles &copy; Esri | Border &copy; BharAtlas (LGD) | Data &copy; OpenStreetMap',
-  maxZoom: 18
+  subdomains: 'abcd',
+  maxZoom: 19,
+  maxNativeZoom: 19
 }).addTo(map);
 
 // 2. CORRECT INDIA BORDER - from BharAtlas
-// File must be named india-border.geojson in same folder
 fetch('india_boundary.geojson')
   .then(r => {
     if(!r.ok) throw new Error('BharAtlas file not found');
@@ -28,16 +29,15 @@ fetch('india_boundary.geojson')
   })
   .then(data => {
     L.geoJSON(data, {
-      style: { color: '#e60000', weight: 2.5, fillOpacity: 0 }
+      style: { color: '#333333', weight: 1, opacity: 0.6, fillOpacity: 0 }
     }).addTo(map);
   })
   .catch(() => {
-    // Fallback if you haven't uploaded BharAtlas file yet
     fetch('https://raw.githubusercontent.com/dattahub/india-geojson/master/india.json')
       .then(r => r.json())
       .then(data => {
         L.geoJSON(data, {
-          style: { color: '#e60000', weight: 2, fillOpacity: 0 }
+          style: { color: '#333333', weight: 1, opacity: 0.6, fillOpacity: 0 }
         }).addTo(map);
       });
   });
