@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head><meta name="viewport" content="width=device-width, initial-scale=1"><title>Share Location</title></head>
+<body style="text-align:center; font-family:sans-serif; padding:40px;">
+  <h2>📍 Share Your Location</h2>
+  <p>Tap below once. No typing needed.</p>
+  <input id="name" placeholder="Enter your name" style="padding:12px; width:80%; font-size:16px;"><br><br>
+  <button onclick="share()" style="padding:15px 30px; font-size:18px; background:#25D366; color:white; border:none; border-radius:10px;">Share My Location</button>
+  <p id="msg"></p>
+<script>
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbydnT4CDPnsEf2rCL-AiQ-DLCSaE_ltiR1q7K77G9hHb7SHwk4LoT7Ef_YTQLDRwlYt/exec";
+function share(){
+  const name = document.getElementById('name').value || "Anonymous";
+  document.getElementById('msg').innerText = "Getting location...";
+  navigator.geolocation.getCurrentPosition(pos => {
+    const url = SCRIPT_URL + "?name=" + encodeURIComponent(name) + "&lat=" + pos.coords.latitude + "&lng=" + pos.coords.longitude + "&acc=" + Math.round(pos.coords.accuracy);
+    fetch(url, {mode:'no-cors'}).then(()=>{
+      document.getElementById('msg').innerText = "✅ Done! Thank you. Accuracy: " + Math.round(pos.coords.accuracy) + " meters";
+    });
+  }, err => {
+    document.getElementById('msg').innerText = "Please allow location permission and try again.";
+  }, {enableHighAccuracy: true, timeout: 10000, maximumAge: 0});
+}
+</script>
+</body>
+</html>

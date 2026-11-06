@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Live Map</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>html,body,#map{height:100%;margin:0;padding:0;}</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+const CSV_URL = "https://docs.google.com/spreadsheets/d/1D8g1RnNNLLKXFqFl2rs3T8pedzyoVAMYPNa2VfYox2s/export?format=csv";
+var map = L.map('map').setView([17.385, 78.4867], 13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19, attribution:'© OpenStreetMap'}).addTo(map);
+
+fetch(CSV_URL).then(r=>r.text()).then(text=>{
+  const rows = text.trim().split('\n').slice(1);
+  rows.forEach(row=>{
+    const cols = row.split(',');
+    const name = cols[0];
+    const lat = parseFloat(cols[1]);
+    const lng = parseFloat(cols[2]);
+    const timeRaw = cols[3];
+    const acc = cols[4] ? parseInt(cols[4]) : 0;
+    if(!isNaN(lat) && !isNaN(lng)){
+      const popup = "<b>" + name + "</b><br>" +
+        "Lat: " + lat.toFixed(6) + "<br>" +
+        "Lon: " + lng.toFixed(6) + "<br>" +
+        "Accuracy: " + acc + " meters<br>" +
+        "Time: " + timeRaw;
+      L.marker([lat,lng]).addTo(map).bindPopup(popup);
+    }
+  });
+});
+</script>
+</body>
+</html>
