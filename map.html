@@ -12,9 +12,14 @@
 <script>
 const CSV_URL = "https://docs.google.com/spreadsheets/d/1D8g1RnNNLLKXFqFl2rs3T8pedzyoVAMYPNa2VfYox2s/export?format=csv";
 var map = L.map('map').setView([17.385, 78.4867], 13);
-L.tileLayer('https://{s}.tile.openstreetmap.in/{z}/{x}/{y}.png', {
-  attribution: '&copy; <a href="https://www.openstreetmap.in/">OpenStreetMap India</a> contributors'
+
+// FIXED: openstreetmap.in was down -> grey screen. Esri loads + shows India correctly
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+  attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics',
+  maxZoom: 18
 }).addTo(map);
+
+setTimeout(() => { map.invalidateSize(); }, 500);
   
 fetch(CSV_URL).then(r=>r.text()).then(text=>{
   const rows = text.trim().split('\n').slice(1);
@@ -32,6 +37,10 @@ fetch(CSV_URL).then(r=>r.text()).then(text=>{
         "Accuracy: " + acc + " meters<br>" +
         "Time: " + timeRaw;
       L.marker([lat,lng]).addTo(map).bindPopup(popup);
+      // Show accuracy circle
+      if(acc > 0){
+        L.circle([lat,lng], { radius: acc, color: '#3388ff', fillOpacity: 0.15 }).addTo(map);
+      }
     }
   });
 });
