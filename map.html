@@ -13,15 +13,12 @@
 const CSV_URL = "https://docs.google.com/spreadsheets/d/1D8g1RnNNLLKXFqFl2rs3T8pedzyoVAMYPNa2VfYox2s/export?format=csv";
 var map = L.map('map', { maxZoom: 19, minZoom: 3 }).setView([17.385, 78.4867], 13);
 
-// 1. BASE MAP - Carto Voyager (works at full zoom, no grey tiles)
-L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-  attribution: 'Tiles &copy; Esri | Border &copy; BharAtlas (LGD) | Data &copy; OpenStreetMap',
-  subdomains: 'abcd',
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: 'Data &copy; OpenStreetMap contributors | Border &copy; BharAtlas (LGD)',
   maxZoom: 19,
   maxNativeZoom: 19
 }).addTo(map);
 
-// 2. CORRECT INDIA BORDER - from BharAtlas
 fetch('india_boundary.geojson')
   .then(r => {
     if(!r.ok) throw new Error('BharAtlas file not found');
@@ -44,7 +41,6 @@ fetch('india_boundary.geojson')
 
 setTimeout(() => { map.invalidateSize(); }, 500);
 
-// 3. LIVE PINS - from Google Sheet, NO blue circle
 fetch(CSV_URL).then(r=>r.text()).then(text=>{
   const rows = text.trim().split('\n').slice(1);
   rows.forEach(row=>{
