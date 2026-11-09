@@ -1,26 +1,542 @@
 <!DOCTYPE html>
-<html>
-<head><meta name="viewport" content="width=device-width, initial-scale=1"><title>Share Location</title></head>
-<body style="text-align:center; font-family:sans-serif; padding:40px;">
-  <h2>📍 Share Your Location</h2>
-  <p>Tap below once. No typing needed.</p>
-  <input id="name" placeholder="Enter your name" style="padding:12px; width:80%; font-size:16px;"><br><br>
-  <button onclick="share()" style="padding:15px 30px; font-size:18px; background:#25D366; color:white; border:none; border-radius:10px;">Share My Location</button>
-  <p id="msg"></p>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Say hi from where you are 👋</title>
+<meta name="description" content="See how spread out we all are! Drop your pin on our group map.">
+<!-- Shown in the WhatsApp link preview -->
+<meta property="og:title" content="Say hi from where you are 👋">
+<meta property="og:description" content="See how spread out we all are! Drop your pin on our group map.">
+<meta property="og:type" content="website">
+<style>
+  :root {
+    --bg: #f5f6f8; --card: #ffffff; --text: #15171c; --muted: #5a6170; --border: #e1e4ea;
+    --accent: #1a7f4b; --accent-press: #146a3e; --on-accent: #ffffff;
+    --note-bg: #fff5e0; --note-text: #7a5000; --err: #b42318;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #101215; --card: #1a1d22; --text: #eef0f3; --muted: #a2a9b4; --border: #2c3139;
+      --accent: #2fa866; --accent-press: #27905a; --on-accent: #08130d;
+      --note-bg: #3a2d10; --note-text: #f2c879; --err: #ff8f86;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 440px; margin: 0 auto; padding: 28px 16px 48px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 24px 20px; }
+  h1 { font-size: 22px; line-height: 1.25; margin: 0 0 8px; }
+  p { margin: 0 0 12px; }
+  .muted { color: var(--muted); font-size: 14px; }
+  h2 { font-size: 18px; line-height: 1.3; margin: 0 0 6px; }
+  .step { border-top: 1px solid var(--border); margin-top: 16px; padding-top: 16px; }
+  .links { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .btn { display: block; width: 100%; padding: 15px 16px; margin-top: 12px; font: inherit; font-size: 17px;
+         font-weight: 600; border: 0; border-radius: 12px; background: var(--accent); color: var(--on-accent); cursor: pointer; }
+  .btn:active { background: var(--accent-press); }
+  .btn:disabled { opacity: .55; }
+  .btn.ghost { background: transparent; color: var(--accent); border: 1px solid var(--border); font-weight: 500; font-size: 16px; }
+  ol { padding-left: 22px; margin: 4px 0 8px; }
+  li { margin-bottom: 8px; }
+  b.ui { font-weight: 600; }
+  /* Small "i" icon; its yellow box opens on hover (computers) or tap (phones) */
+  .help-wrap { position: relative; }
+  .info { display: inline; }
+  .info-btn { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; margin-left: 4px;
+              vertical-align: -5px; padding: 0; border: 0; border-radius: 50%; background: var(--note-bg); color: var(--note-text);
+              font: italic 700 14px/1 Georgia, "Times New Roman", serif; cursor: pointer; }
+  .info-pop { display: none; position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 1100;
+              background: var(--note-bg); color: var(--note-text); border-radius: 10px; padding: 10px 12px;
+              font-size: 14px; line-height: 1.45; box-shadow: 0 6px 20px rgba(0,0,0,.15); }
+  .info.open .info-pop, .info.hover .info-pop, .info-btn:focus-visible + .info-pop { display: block; }
+  .fine { color: var(--muted); font-size: 13px; text-align: center; margin: 16px 0 0; }
+  .ask-row { display: flex; align-items: center; gap: 16px; margin-top: 4px; }
+  .ask-row .btn { margin-top: 0; flex: 1; }
+  .ask-row .linkbtn { margin: 0; white-space: nowrap; font-size: 15px; }
+  .btn .spin { display: inline-block; width: 16px; height: 16px; margin-right: 8px; vertical-align: -2px;
+               border: 2.5px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; }
+  .err { color: var(--err); font-size: 14px; min-height: 1em; margin-top: 8px; }
+  input[type=text], input[type=search] { width: 100%; padding: 13px 14px; font: inherit; font-size: 16px; color: var(--text);
+         background: var(--bg); border: 1px solid var(--border); border-radius: 10px; }
+  label { display: block; font-size: 14px; color: var(--muted); margin: 16px 0 6px; }
+  .spinner { width: 36px; height: 36px; border: 4px solid var(--border); border-top-color: var(--accent);
+             border-radius: 50%; animation: spin .9s linear infinite; margin-bottom: 14px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  details { margin-top: 12px; font-size: 14px; }
+  summary { cursor: pointer; color: var(--muted); }
+  .linkbtn { background: none; border: 0; padding: 4px 0; margin: 8px 0 0; font: inherit; font-size: 14px; color: var(--accent); text-decoration: underline; cursor: pointer; }
+  #p-search { margin: 4px 0 10px; }
+  #pick-map { height: clamp(170px, 30vh, 400px); border-radius: 12px; margin: 4px 0 0; border: 1px solid var(--border); }
+  #p-msg:empty { display: none; }
+  label[for=p-name] { margin-top: 8px; }
+  .row { display: flex; gap: 8px; }
+  .row .btn { margin-top: 0; width: auto; padding: 0 16px; }
+  .hidden { display: none !important; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <section class="card">
+    <!-- Intro: stays on screen for every step -->
+    <h1>👋 Say hi from where you are</h1>
+    <p class="muted">See how spread out we all are! Drop your pin on our group map.</p>
+
+    <!-- Step 1: ask for location from a button -->
+    <div data-view="ask">
+      <div class="ask-row">
+        <button id="a-allow" class="btn" type="button">Allow location</button>
+        <button id="a-retry" class="linkbtn hidden" type="button">Try again</button>
+      </div>
+      <p id="a-status" class="muted" role="status" aria-live="polite" style="margin:12px 0 0"></p>
+    </div>
+
+    <!-- Step 2: check / place pin, add name, Save -->
+    <div class="step hidden" data-view="pick">
+      <h2 id="p-title">Check your pin</h2>
+      <div class="help-wrap">
+        <p class="muted"><span id="p-help"></span><span id="p-info" class="info hidden"><button class="info-btn" type="button" aria-label="Why the pin may be off" aria-expanded="false">i</button><span class="info-pop" role="tooltip"></span></span></p>
+      </div>
+      <form id="p-search" class="row">
+        <input id="p-q" type="search" placeholder="Area, city or PIN code" enterkeyhint="search">
+        <button class="btn ghost" type="submit">Find</button>
+      </form>
+      <div id="pick-map"></div>
+      <div class="links">
+        <button id="p-showsearch" class="linkbtn" type="button">Search for a place</button>
+        <button id="p-alt" class="linkbtn" type="button">Find my location again</button>
+      </div>
+      <p id="p-msg" class="err" role="status"></p>
+      <label for="p-name">Your name (optional)</label>
+      <input id="p-name" type="text" maxlength="60" autocomplete="name" placeholder="e.g. Priya, Batch of 2019">
+      <button id="p-confirm" class="btn" type="button" disabled>Save my location</button>
+    </div>
+
+    <!-- Saving -->
+    <div class="step hidden" data-view="working">
+      <div class="spinner"></div>
+      <h2>Saving your pin…</h2>
+    </div>
+
+    <!-- Done -->
+    <div class="step hidden" data-view="done">
+      <h2>✅ You're on the map</h2>
+      <p id="d-acc" class="muted"></p>
+      <p id="d-maplink" class="muted hidden"><a href="#">View the group map →</a></p>
+    </div>
+
+    <!-- Problems: blocked / unavailable / couldn't save -->
+    <div class="step hidden" data-view="error">
+      <h2 id="e-title">Location is turned off</h2>
+      <div class="help-wrap">
+        <p><span id="e-msg"></span><span id="e-info" class="info hidden"><button class="info-btn" type="button" aria-label="More info" aria-expanded="false">i</button><span class="info-pop" role="tooltip"></span></span></p>
+      </div>
+      <ol id="e-steps"></ol>
+      <div id="e-extra"></div>
+      <button id="e-retry" class="btn" type="button">Try again</button>
+      <button id="e-pick" class="btn ghost" type="button">Or pick your spot on a map</button>
+    </div>
+
+    <p class="fine">We only ask once<br>You'll check the pin before it's saved<br>Used only for this group map, nothing else</p>
+  </section>
+</main>
+
 <script>
+// ===== Settings =====
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbydnT4CDPnsEf2rCL-AiQ-DLCSaE_ltiR1q7K77G9hHb7SHwk4LoT7Ef_YTQLDRwlYt/exec";
-function share(){
-  const name = document.getElementById('name').value || "Anonymous";
-  document.getElementById('msg').innerText = "Getting location...";
-  navigator.geolocation.getCurrentPosition(pos => {
-    const url = SCRIPT_URL + "?name=" + encodeURIComponent(name) + "&lat=" + pos.coords.latitude + "&lng=" + pos.coords.longitude + "&acc=" + Math.round(pos.coords.accuracy);
-    fetch(url, {mode:'no-cors'}).then(()=>{
-      document.getElementById('msg').innerText = "✅ Done! Thank you. Accuracy: " + Math.round(pos.coords.accuracy) + " meters";
-    });
-  }, err => {
-    document.getElementById('msg').innerText = "Please allow location permission and try again.";
-  }, {enableHighAccuracy: true, timeout: 10000, maximumAge: 0});
+const MAP_LINK = ""; // optional, e.g. "map.html#key=..." to show members a link to the map
+// ====================
+
+const $ = id => document.getElementById(id);
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+};
+const params = new URLSearchParams(location.search);
+let name = (params.get("name") || store.get("locmap-name") || "").trim();
+let fix = null;   // { lat, lng, acc, source }
+let busy = false;
+let run = 0;            // ignores a stale GPS attempt if the user restarts
+let cancelFix = null;   // stops the GPS attempt in progress
+let allowLabel = "Allow location";   // becomes "Share my location" if permission was already given
+
+const ua = navigator.userAgent;
+const isIOS = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const isAndroid = /Android/.test(ua);
+const isMobile = isIOS || isAndroid || /Mobi/.test(ua);
+const isMac = !isIOS && /Macintosh|Mac OS X/.test(ua);
+const isWindows = /Windows/.test(ua);
+const TAP = isMobile ? "tap" : "click";
+const Tap = isMobile ? "Tap" : "Click";
+const DEVICE = isMobile ? "phone" : "browser";
+const iosBrowser = /CriOS/.test(ua) ? "Chrome" : /FxiOS/.test(ua) ? "Firefox" : /EdgiOS/.test(ua) ? "Edge" : "Safari";
+
+// Random ID for this browser, so "Save name" updates the same row.
+// Kept in memory too, in case the browser blocks storage (private mode, some in-app browsers).
+let _device = null;
+function deviceId() {
+  if (_device) return _device;
+  _device = store.get("locmap-device");
+  if (!_device) {
+    _device = (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + "-" + Math.random().toString(36).slice(2));
+    store.set("locmap-device", _device);
+  }
+  return _device;
 }
+
+function show(view) {
+  document.querySelectorAll("[data-view]").forEach(s => s.classList.toggle("hidden", s.dataset.view !== view));
+}
+
+// Watch GPS for a few seconds and keep the best reading.
+function getFix(onProgress) {
+  return new Promise((resolve, reject) => {
+    if (!("geolocation" in navigator)) return reject({ code: 0 });
+    const geo = navigator.geolocation;
+    let best = null, done = false, settle = null, wid = null;
+    const stop = () => { if (wid !== null) geo.clearWatch(wid); clearTimeout(settle); };
+    const ok = p => { if (done) return; done = true; stop(); resolve(p); };
+    const fail = e => { if (done) return; done = true; stop(); reject(e); };
+    cancelFix = () => fail({ code: -1 });
+    wid = geo.watchPosition(p => {
+      if (!best || p.coords.accuracy < best.coords.accuracy) { best = p; onProgress(p); }
+      if (p.coords.accuracy <= 25) return ok(best);
+      // Phones can sharpen GPS over a few seconds; laptops (Wi-Fi location) won't improve.
+      if (!settle) settle = setTimeout(() => ok(best), isMobile ? 8000 : 2500);
+    }, e => {
+      if (e.code === 1) return fail(e);
+      if (best) return ok(best);
+      // GPS could not get a fix in time: fall back to a quick network-based fix.
+      if (done) return; done = true; stop();
+      geo.getCurrentPosition(resolve, reject, { enableHighAccuracy: false, maximumAge: 300000, timeout: 15000 });
+    }, { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
+  });
+}
+
+async function save() {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 20000);
+  try {
+    // text/plain body = no CORS preflight, and we can still read the reply.
+    const res = await fetch(SCRIPT_URL, {
+      method: "POST", signal: ctrl.signal,
+      body: JSON.stringify({ ...fix, name, device: deviceId() })
+    });
+    const j = await res.json();
+    if (!j.ok) throw new Error(j.error || "Save failed");
+  } finally { clearTimeout(t); }
+}
+
+// First-screen states: "idle" (Allow location button), "waiting" (browser pop-up), "locating" (got a first reading)
+function setAsk(state, acc) {
+  const btn = $("a-allow");
+  btn.disabled = state !== "idle";
+  if (state === "idle") {
+    btn.textContent = allowLabel;
+    $("a-status").textContent = "";
+    $("a-retry").classList.add("hidden");
+  } else if (state === "waiting") {
+    btn.innerHTML = '<span class="spin"></span>Waiting for permission…';
+    $("a-status").innerHTML = "When your " + DEVICE + " asks, " + TAP + ' <b class="ui">Allow</b>.';
+  } else {
+    btn.innerHTML = '<span class="spin"></span>Finding your location…';
+    $("a-status").textContent = "Got it. Sharpening accuracy… ±" + Math.round(acc) + " m";
+    $("a-retry").classList.add("hidden");
+  }
+}
+
+async function start() {
+  if (cancelFix) cancelFix();   // restarting cancels any earlier attempt
+  const my = ++run;
+  show("ask");
+  setAsk("waiting");
+  $("a-retry").classList.add("hidden");
+  // If the pop-up didn't show or was closed, offer "Try again" beside the button.
+  const retryTimer = setTimeout(() => { if (my === run) $("a-retry").classList.remove("hidden"); }, 3000);
+  let pos;
+  try {
+    pos = await getFix(p => { if (my === run) setAsk("locating", p.coords.accuracy); });
+  } catch (e) {
+    clearTimeout(retryTimer);
+    if (my !== run) return;
+    return showLocationError(e.code);
+  }
+  clearTimeout(retryTimer);
+  if (my !== run) return;
+  fix = { lat: +pos.coords.latitude.toFixed(6), lng: +pos.coords.longitude.toFixed(6),
+          acc: Math.round(pos.coords.accuracy), source: "gps" };
+  openPlace("gps");   // nothing is saved until they tap "Save my location"
+}
+
+async function saveAndFinish() {
+  if (busy) return;
+  busy = true;
+  show("working");
+  try {
+    await save();
+    busy = false;
+    showDone();
+  } catch (e) {
+    busy = false;
+    showError({
+      title: "Couldn't save your pin",
+      msg: "Your location was found, but it couldn't be sent. Check your internet connection and try again.",
+      steps: [], retry: saveAndFinish, pick: false
+    });
+  }
+}
+
+function showDone() {
+  show("done");
+  $("d-acc").textContent = (name ? "Saved as " + name + ". " : "Saved without a name. ") +
+    (fix.source === "manual" ? "Your pin was placed by hand on the map." : "Accuracy: about ±" + fix.acc + " m.");
+  if (MAP_LINK) {
+    $("d-maplink").classList.remove("hidden");
+    $("d-maplink").querySelector("a").href = MAP_LINK;
+  }
+}
+
+const STEPS = {
+  ios: () => [
+    'Open the <b class="ui">Settings</b> app → <b class="ui">Privacy &amp; Security</b> → <b class="ui">Location Services</b>, and make sure it is <b class="ui">On</b>.',
+    'In the same list, scroll down to <b class="ui">' + iosBrowser + ' Websites</b> → choose <b class="ui">While Using the App</b> (or Ask Next Time), and turn on <b class="ui">Precise Location</b>.',
+    'Come back here, tap <b class="ui">Try again</b>, then tap <b class="ui">Allow</b>.'
+  ],
+  iosExtra: () => iosBrowser === "Safari"
+    ? '<details><summary>Still blocked?</summary><p style="margin-top:8px">Tap the page-settings button at the left of the web address (it may look like <b class="ui">aA</b> or a page icon) → <b class="ui">Website Settings</b> → <b class="ui">Location</b> → <b class="ui">Ask</b> or <b class="ui">Allow</b>. Then tap Try again.</p></details>'
+    : "",
+  android: () => [
+    'Swipe down from the top of the screen and make sure <b class="ui">Location</b> is on.',
+    'Tap the icon at the left of the web address (🔒 or ⚙︎) → <b class="ui">Permissions</b> → <b class="ui">Location</b> → <b class="ui">Allow</b>.',
+    'Tap <b class="ui">Try again</b>, then tap <b class="ui">Allow</b>.'
+  ],
+  androidExtra: () => '<details><summary>Still blocked?</summary><p style="margin-top:8px">If this page opened inside WhatsApp, tap <b class="ui">⋮</b> → <b class="ui">Open in Chrome</b> and try there. In Chrome you can also go to <b class="ui">⋮ → Settings → Site settings → Location</b> and allow this site.</p></details>',
+  desktop: () => [
+    'Click the icon at the left of the web address (🔒 or ⚙︎) → <b class="ui">Location</b> → <b class="ui">Allow</b>.',
+    ...osLocationSteps(),
+    'Click <b class="ui">Try again</b>, then click <b class="ui">Allow</b>.'
+  ],
+  desktopExtra: () => ""
+};
+// Laptops also need location switched on in the operating system, not just the browser.
+function osLocationSteps() {
+  if (isMac) return ['Open <b class="ui">System Settings → Privacy &amp; Security → Location Services</b>. Turn it <b class="ui">On</b>, and turn it on for your browser (Chrome, Safari, Firefox…). You may need to quit and reopen the browser.'];
+  if (isWindows) return ['Open <b class="ui">Start → Settings → Privacy &amp; security → Location</b>. Turn on <b class="ui">Location services</b> and <b class="ui">Let desktop apps access your location</b>.'];
+  return [];
+}
+const platform = isIOS ? "ios" : isAndroid ? "android" : "desktop";
+
+function showLocationError(code) {
+  if (code === 1) {
+    showError({
+      title: "Location is blocked",
+      msg: "Your " + DEVICE + " didn't let this page see your location. It only takes a moment to turn on:",
+      steps: STEPS[platform](), extra: STEPS[platform + "Extra"](),
+      tip: isMobile ? "" : "For the most exact pin, open this link on your phone instead. Computers find their location from Wi-Fi, which is less precise.",
+      retry: () => location.reload(), pick: true
+    });
+  } else if (code === 0) {
+    showError({
+      title: "Location isn't available here",
+      msg: "This browser can't share your location. You can still place your pin by hand.",
+      steps: [], retry: null, pick: true
+    });
+  } else {
+    const steps = isIOS ? [
+        'Make sure <b class="ui">Settings → Privacy &amp; Security → Location Services</b> is on.',
+        "Move closer to a window or step outside."
+      ] : isAndroid ? [
+        'Make sure <b class="ui">Location</b> (GPS) is turned on in your quick settings.',
+        "Move closer to a window or step outside."
+      ] : [
+        ...osLocationSteps(),
+        "Make sure Wi-Fi is turned on. Computers use nearby Wi-Fi networks to find their location, even if you're on a cable."
+      ];
+    showError({
+      title: "Couldn't find your location",
+      msg: "Your " + (isMobile ? "phone" : "computer") + " couldn't work out where it is.",
+      steps: [...steps, Tap + ' <b class="ui">Try again</b>.'],
+      retry: start, pick: true
+    });
+  }
+}
+
+// Fill an "i" icon's yellow box; hide the icon when there's nothing to say.
+function setInfo(el, html) {
+  el.classList.remove("open", "hover");
+  el.querySelector(".info-btn").setAttribute("aria-expanded", "false");
+  el.querySelector(".info-pop").innerHTML = html;   // trusted, static strings only
+  el.classList.toggle("hidden", !html);
+}
+document.querySelectorAll(".info").forEach(el => {
+  // Mouse: open while hovering (the box stays open while the pointer is over it). Touch: tap to toggle.
+  el.addEventListener("pointerenter", e => { if (e.pointerType === "mouse") el.classList.add("hover"); });
+  el.addEventListener("pointerleave", e => { if (e.pointerType === "mouse") el.classList.remove("hover"); });
+  el.querySelector(".info-btn").addEventListener("click", ev => {
+    ev.stopPropagation();
+    const open = el.classList.toggle("open");
+    ev.currentTarget.setAttribute("aria-expanded", open);
+  });
+});
+const closeInfos = () => document.querySelectorAll(".info.open").forEach(el => {
+  el.classList.remove("open"); el.querySelector(".info-btn").setAttribute("aria-expanded", "false");
+});
+document.addEventListener("click", closeInfos);
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeInfos(); });
+
+function showError({ title, msg, steps, extra = "", tip = "", retry, pick }) {
+  show("error");
+  $("e-title").textContent = title;
+  $("e-msg").textContent = msg;
+  setInfo($("e-info"), tip);
+  $("e-steps").innerHTML = steps.map(s => "<li>" + s + "</li>").join("");   // trusted, static strings only
+  $("e-steps").classList.toggle("hidden", !steps.length);
+  $("e-extra").innerHTML = extra;
+  $("e-retry").classList.toggle("hidden", !retry);
+  $("e-retry").onclick = retry;
+  $("e-pick").classList.toggle("hidden", !pick);
+}
+
+// ---------- Check / place pin, then Save (Leaflet loaded only when needed) ----------
+let pickMap = null, pickMarker = null, accCircle = null, placeMode = "manual", moved = false;
+function loadLeaflet() {
+  if (window.L) return Promise.resolve();
+  if (loadLeaflet.p) return loadLeaflet.p;
+  return (loadLeaflet.p = new Promise((resolve, reject) => {
+    const css = document.createElement("link");
+    css.rel = "stylesheet"; css.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+    document.head.appendChild(css);
+    const s = document.createElement("script");
+    s.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+    s.onload = resolve; s.onerror = () => { loadLeaflet.p = null; reject(); };
+    document.head.appendChild(s);
+  }));
+}
+function userMoved() {
+  moved = true;
+  if (accCircle) { pickMap.removeLayer(accCircle); accCircle = null; }
+}
+function setPin(latlng) {
+  if (!pickMarker) {
+    pickMarker = L.marker(latlng, { draggable: true }).addTo(pickMap);
+    pickMarker.on("dragend", userMoved);
+  } else {
+    pickMarker.setLatLng(latlng);
+  }
+  $("p-confirm").disabled = false;
+}
+
+// mode "gps": show the found location so they can check/adjust it, then Save.
+// mode "manual": no location available, they place the pin themselves.
+async function openPlace(mode) {
+  placeMode = mode; moved = false;
+  show("pick");
+  const gps = mode === "gps";
+  $("p-title").textContent = gps ? "Check your pin" : Tap + " where you are";
+  $("p-help").textContent = gps
+    ? "This is where your " + DEVICE + " thinks you are. If it's not quite right, drag the pin or " + TAP + " the map. Then " + TAP + " Save."
+    : "Search for your area, then " + TAP + " the map to drop your pin. You can drag the pin to adjust it.";
+  $("p-search").classList.toggle("hidden", gps);
+  $("p-showsearch").classList.toggle("hidden", !gps);
+  $("p-alt").textContent = gps ? "Find my location again" : "← Back";
+  $("p-name").value = name;
+  $("p-confirm").disabled = !gps;
+  $("p-msg").textContent = "";
+
+  // Warn when the location is likely to be off.
+  let note = "";
+  if (gps && fix.acc > 1000) {
+    const km = (fix.acc / 1000).toFixed(1);
+    note = isIOS
+      ? 'Your location looks approximate (±' + km + ' km). Drag the pin to your exact spot, or turn on <b class="ui">Settings → Privacy &amp; Security → Location Services → ' + iosBrowser + ' Websites → Precise Location</b> and tap Find my location again.'
+      : 'Your location looks approximate (±' + km + ' km). Drag the pin to your exact spot, or turn on precise location / GPS and tap Find my location again.';
+  } else if (gps && !isMobile) {
+    note = "Computers find their location from nearby Wi-Fi, so this can be off by a few hundred metres. Please check the pin.";
+  }
+  setInfo($("p-info"), note);
+
+  try { await loadLeaflet(); }
+  catch (e) {
+    $("pick-map").classList.add("hidden");
+    $("p-msg").textContent = gps
+      ? "Couldn't load the map, but you can still save your location."
+      : "Couldn't load the map. Check your connection and try again.";
+    return;
+  }
+  $("pick-map").classList.remove("hidden");
+  if (!pickMap) {
+    pickMap = L.map("pick-map").fitBounds([[6.5, 68.1], [35.7, 97.4]]);
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19, attribution: "&copy; OpenStreetMap contributors"
+    }).addTo(pickMap);
+    pickMap.on("click", e => { setPin(e.latlng); userMoved(); });
+  }
+  if (pickMarker) { pickMap.removeLayer(pickMarker); pickMarker = null; }
+  if (accCircle) { pickMap.removeLayer(accCircle); accCircle = null; }
+  pickMap.invalidateSize();
+  if (gps) {
+    setPin([fix.lat, fix.lng]);
+    if (fix.acc > 30) accCircle = L.circle([fix.lat, fix.lng], { radius: fix.acc, weight: 1, fillOpacity: 0.1, interactive: false }).addTo(pickMap);
+    const zoom = fix.acc <= 30 ? 17 : fix.acc <= 150 ? 16 : fix.acc <= 1000 ? 14 : 12;
+    pickMap.setView([fix.lat, fix.lng], zoom);
+  } else {
+    pickMap.fitBounds([[6.5, 68.1], [35.7, 97.4]]);
+  }
+  setTimeout(() => {
+    pickMap.invalidateSize();
+    // Small screens: scroll just enough that "Save my location" is visible.
+    const r = $("p-confirm").getBoundingClientRect();
+    if (r.bottom > innerHeight) $("p-confirm").scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, 100);
+}
+$("p-showsearch").onclick = () => { $("p-showsearch").classList.add("hidden"); $("p-search").classList.remove("hidden"); $("p-q").focus(); };
+$("p-search").addEventListener("submit", async e => {
+  e.preventDefault();
+  const q = $("p-q").value.trim();
+  if (!q || !pickMap) return;
+  $("p-msg").textContent = "Searching…";
+  try {
+    const r = await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=in&q=" + encodeURIComponent(q));
+    const [hit] = await r.json();
+    if (!hit) { $("p-msg").textContent = "Couldn't find that place. Try a nearby city or PIN code."; return; }
+    pickMap.setView([+hit.lat, +hit.lon], 14);
+    $("p-msg").textContent = "Now " + TAP + " the map on your exact spot.";
+  } catch (err) { $("p-msg").textContent = "Search failed. You can still zoom in and " + TAP + " the map."; }
+});
+$("p-confirm").onclick = () => {
+  // Name and location are saved together in one go.
+  name = $("p-name").value.trim();
+  if (name) store.set("locmap-name", name);
+  // GPS reading kept as-is unless they moved the pin; a moved pin counts as placed by hand.
+  if (placeMode !== "gps" || moved) {
+    if (!pickMarker) return;
+    const ll = pickMarker.getLatLng().wrap();
+    fix = { lat: +ll.lat.toFixed(6), lng: +ll.lng.toFixed(6), acc: 0, source: "manual" };
+  }
+  saveAndFinish();
+};
+$("p-alt").onclick = () => (placeMode === "gps" ? start() : show("error"));
+$("p-name").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); $("p-confirm").click(); } });
+$("e-pick").onclick = () => openPlace("manual");
+$("a-allow").onclick = start;
+$("a-retry").onclick = start;
+
+// ---------- Go ----------
+// Always show the intro and wait for the button.
+// Blocked -> show how to unblock. Already allowed -> button says "Share my location" (no pop-up will appear).
+(async () => {
+  loadLeaflet().catch(() => {});   // fetch the map library early
+  let state = "prompt";
+  try {
+    if (navigator.permissions && navigator.permissions.query) {
+      state = (await navigator.permissions.query({ name: "geolocation" })).state;
+    }
+  } catch (e) {}
+  if (state === "denied") showLocationError(1);
+  else if (state === "granted") { allowLabel = "Share my location"; setAsk("idle"); }
+})();
 </script>
 </body>
 </html>

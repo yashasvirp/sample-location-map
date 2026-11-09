@@ -1,163 +1,90 @@
-# 📍 Live Location Sharing Map
+# 📍 Group Location Map
 
-Share location via a link, save it to Google Sheets, and view all pins on a live map.
+Send one link in a WhatsApp group. Each member taps **Allow location**, checks their pin, optionally adds their name, and taps **Save my location**. That's 2 taps on the page. Their pin then appears on a map of India. Works on phones and laptops.
 
-**Live Demo:**
-- Share Page: `https://YOUR-USERNAME.github.io/location-map/`
-- Map Page: `https://YOUR-USERNAME.github.io/location-map/map.html`
+- **Share page:** `https://yashasvirp.github.io/sample-location-map/`
+- **Map page:** `https://yashasvirp.github.io/sample-location-map/map.html` (anyone with the link can see all pins)
 
-**What it saves:**
-`Name | Lat | Lon | Time | Accuracy`
+## How it works for a member
 
----
+1. They tap the link in WhatsApp and see a short explanation with an **Allow location** button.
+2. They tap **Allow location**, then **Allow** in the phone's pop-up. If no pop-up appears, a **Try again** link shows up next to the button. If they allowed location before, the button says **Share my location** and no pop-up appears.
+3. A map shows their pin. If it's off, they drag it, tap the map, or search their area.
+4. Optionally, they type their name in the box under the map.
+5. They tap **Save my location**. The location and name are saved together in one row. Nothing is saved before this, and the name stays empty if they left it blank.
 
-## 1. Create Google Sheet
+If location is blocked (for example, Safari Websites is set to "Never" on iPhone, or Location Services is off on a Mac or Windows laptop), the page shows step-by-step instructions for their device. It also lets them search for their area and drop a pin by hand, so nobody gets stuck.
 
-1. Go to [sheets.google.com](https://sheets.google.com) > Blank spreadsheet
-2. Rename it to `Location Tracker`
-3. In Row 1, add headers exactly:
-   ```
-   A1: Name | B1: Lat | C1: Lng | D1: Time | E1: Accuracy
-   ```
-4. Click **Share > Anyone with link > Viewer > Done**
+If they open the link again on the same phone or browser and save again, their existing row is updated. It does not add a second pin. If they leave the name blank that time, their earlier name is kept.
 
-**Get your Sheet ID:**
+## Files
 
-From your sheet URL:
-```
-https://docs.google.com/spreadsheets/d/ 1AbCdefGhIjKlMnOpQrStUvWxYz /edit
-```
-Copy the ID between `/d/` and `/edit`.
-
-Your CSV link will be:
-```
-https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID_HERE/export?format=csv
-```
-
----
-
-## 2. Apps Script - Backend
-
-1. In your Sheet: **Extensions > Apps Script**
-2. Delete everything in `Code.gs` and paste:
-
-```javascript
-function doGet(e) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
-  if (e.parameter.lat) {
-    var time = Utilities.formatDate(new Date(), "Asia/Kolkata", "yyyy-MM-dd HH:mm:ss");
-    sheet.appendRow([e.parameter.name, e.parameter.lat, e.parameter.lng, time, e.parameter.acc]);
-    return ContentService.createTextOutput("OK");
-  }
-  return ContentService.createTextOutput("Ready");
-}
-```
-
-3. Click **Save**
-4. Click **Deploy > New deployment**
-5. Type: **Web app**
-6. Execute as: **Me**
-7. Who has access: **Anyone**
-8. Click **Deploy > Authorize > Allow**
-9. Copy the Web app URL:
-   ```
-   https://script.google.com/macros/s/AKfycb.../exec
-   ```
-   This is your `SCRIPT_URL`.
-
-> If you change code later: Deploy > Manage deployments > Edit > New version > Deploy
-
----
-
-## 3. Project Files
-
-```
-location-map/
-├── index.html   # Share Page
-├── map.html     # Map Page
-└── README.md    # This file
-```
-
-### `index.html` - Share Page
-
-In `index.html`, replace only this one line with your Web app URL from Step 2:
-
-```javascript
-const SCRIPT_URL = "YOUR_SCRIPT_URL_HERE";
-```
-
-### `map.html` - Map Page
-
-In `map.html`, replace only this one line with your CSV link from Step 1:
-
-```javascript
-const CSV_URL = "YOUR_CSV_URL_HERE";
-```
-
-Pin popup will show:
-
-> **Ravi**
-> Lat: 17.385234
-> Lon: 78.486712
-> Accuracy: 18 meters
-> Time: 2026-11-06 19:52:10
-
----
-
-## 4. Deploy to GitHub Pages
-
-1. Go to [github.com](https://github.com) > **New repository**
-2. Name: `location-map`
-3. Visibility: **Public**
-4. Click **Create repository**
-5. Click **uploading an existing file** > Upload `index.html`, `map.html`, `README.md`
-6. Click **Commit changes**
-7. Go to **Settings > Pages**
-8. Source: **Deploy from a branch**
-9. Branch: **main** / **/ (root)** > **Save**
-10. Wait 1 minute. Your site is live at:
-    ```
-    https://YOUR-USERNAME.github.io/location-map/
-    ```
-
-**Your Links:**
-- Share Link: `https://YOUR-USERNAME.github.io/location-map/`
-- Map Link: `https://YOUR-USERNAME.github.io/location-map/map.html`
-
-**To update later:**
-- Go to repo > Click file > Pencil icon > Edit > Commit changes
-- GitHub Pages auto-updates in ~30 seconds. No zip, no re-upload.
-
----
-
-## 5. Test
-
-1. Open Share link on **phone** (not laptop - laptop GPS is 1000m+ off)
-2. Enter name > Allow Location > Share
-3. Check Sheet - new row should appear
-4. Open Map link - Pin should appear. Tap pin to see Name, Lat, Lon, Accuracy, Time.
-
----
-
-## Troubleshooting
-
-| Problem | Fix |
+| File | What it is |
 | :--- | :--- |
-| No pin on map | You forgot to replace `YOUR_CSV_URL_HERE` in `map.html` |
-| Sheet not updating | Apps Script not deployed as New Version, or `SCRIPT_URL` wrong in `index.html` |
-| Time breaks map | Must use `yyyy-MM-dd HH:mm:ss` format, delete old rows with comma in date |
-| Location 1km off | Tested on laptop. Test on phone with GPS on. |
-| GitHub Pages 404 | Wait 1 min, check repo is Public, branch is `main`, file is in root |
+| `index.html` | Share page that members open |
+| `map.html` | Map of all pins |
+| `apps-script/Code.gs` | Backend. Paste it into Google Apps Script |
+| `india_boundary.min.geojson` | India border (LGD via BharAtlas), simplified to about 115 KB for phones |
+| `india_boundary.geojson` | Original full-detail border (7.5 MB), kept as the source |
 
----
+## Setup
 
-## Tech Stack
+### 1. Google Sheet
 
-- Frontend: HTML + Leaflet.js (OpenStreetMap)
-- Backend: Google Apps Script
-- Database: Google Sheets
-- Hosting: GitHub Pages (Free Forever)
+Put these headers in row 1:
 
-## License
+```
+Name | Lat | Lng | Time | Accuracy | Source | Device
+```
 
-Free to use.
+- **Source** is `gps` (from the device) or `manual` (placed or moved by hand on the map).
+- **Device** is a random ID created by the member's browser, used only to update their row if they save again. It isn't a phone number or anything personal.
+
+Rows from the old version still work. Columns F and G just stay empty for them.
+
+**Stop sharing the Sheet.** Under **Share → General access**, choose **Restricted**. The map now gets pins through Apps Script, so the Sheet does not need to be public.
+
+### 2. Apps Script
+
+1. In the Sheet, go to **Extensions → Apps Script**.
+2. Replace `Code.gs` with the contents of [`apps-script/Code.gs`](apps-script/Code.gs). Click **Save**.
+3. Go to **Deploy → Manage deployments → ✏️ Edit → Version: New version → Deploy**.
+   This keeps the same `/exec` URL, so `index.html` and `map.html` don't need to change.
+
+   For a first-time setup, use **Deploy → New deployment → Web app** instead, with **Execute as: Me** and **Who has access: Anyone**. Then put the `/exec` URL into `SCRIPT_URL` in both HTML files.
+
+### 3. GitHub Pages
+
+Push to `main`. Pages serves the files from the repo root.
+
+## Testing
+
+**On a laptop:** browsers only allow location on `https://` or `localhost`, so double-clicking the HTML file won't work. Instead run:
+
+```bash
+cd sample-location-map
+python3 -m http.server 8000
+```
+
+Then open `http://localhost:8000/`. This saves to the real Sheet, so delete test rows afterwards.
+
+- To pretend to be somewhere else, open Chrome DevTools (F12) → ⋮ → **More tools → Sensors → Location**.
+- To see the page as a first-time visitor, use an incognito window, or reset the site's location permission.
+- Each browser counts as one person. Use an incognito window to add a second test pin.
+- Laptop locations come from Wi-Fi and can be a few hundred metres off. The page warns about this.
+
+**On a phone:** push to GitHub, then send yourself the github.io link on WhatsApp.
+
+**The map:** open `map.html`. It refreshes every 60 seconds.
+- Blue pins come from GPS. Orange pins were placed or moved by hand.
+- Tap a pin to see the name, latitude, longitude, accuracy and time. A GPS pin also shows its accuracy circle.
+
+## Privacy
+
+Pins are exact GPS coordinates, which are often someone's home, and **anyone with the `map.html` link can see every pin and name**. Tell the group this before they share.
+
+The share page promises members three things: "We only ask once", "You'll check the pin before it's saved", and "Used only for this group map, nothing else". If the data will be used for anything else (for example analysis, a paper or a presentation), change that last line in `index.html` to say so.
+
+## Tech
+
+Leaflet + OpenStreetMap tiles, Google Apps Script + Sheets, GitHub Pages. Place search on the share page uses OpenStreetMap Nominatim.

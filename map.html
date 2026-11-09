@@ -1,65 +1,122 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Live Map</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<title>Group Map</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<style>html,body,#map{height:100%;margin:0;padding:0;}</style>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<style>
+  :root { --panel: rgba(255,255,255,.95); --text: #15171c; --muted: #5a6170; --border: #dfe3e9;
+          --gps: #2563eb; --manual: #d97706; --err: #b42318; }
+  @media (prefers-color-scheme: dark) {
+    :root { --panel: rgba(26,29,34,.95); --text: #eef0f3; --muted: #a2a9b4; --border: #2c3139; --err: #ff8f86; }
+  }
+  html, body, #map { height: 100%; margin: 0; }
+  body { background: #e8ebef; font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  .panel { position: absolute; z-index: 1000; top: 12px; left: 56px; right: 12px; max-width: 360px;
+           background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 12px;
+           padding: 10px 14px; box-shadow: 0 2px 10px rgba(0,0,0,.12); }
+  .panel h1 { font-size: 16px; margin: 0 0 2px; }
+  .panel .muted { color: var(--muted); }
+  .panel .err { color: var(--err); }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; color: var(--muted); }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; border: 1.5px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.25); }
+  .panel button { margin-top: 8px; font: inherit; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border);
+                  background: transparent; color: var(--text); cursor: pointer; }
+  .pop b { font-size: 15px; }
+  .pop div { color: #555; margin-top: 2px; }
+</style>
 </head>
 <body>
 <div id="map"></div>
+<div class="panel">
+  <h1>Where everyone is</h1>
+  <div id="status" class="muted">Loading pins…</div>
+  <div class="legend">
+    <span><span class="dot" style="background:var(--gps)"></span>Phone GPS</span>
+    <span><span class="dot" style="background:var(--manual)"></span>Placed by hand</span>
+  </div>
+  <button id="fit" type="button">Zoom to all pins</button>
+</div>
 <script>
-const CSV_URL = "https://docs.google.com/spreadsheets/d/1D8g1RnNNLLKXFqFl2rs3T8pedzyoVAMYPNa2VfYox2s/export?format=csv";
-var map = L.map('map', { maxZoom: 19, minZoom: 3 }).setView([17.385, 78.4867], 13);
+// ===== Settings =====
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbydnT4CDPnsEf2rCL-AiQ-DLCSaE_ltiR1q7K77G9hHb7SHwk4LoT7Ef_YTQLDRwlYt/exec";
+const REFRESH_SECONDS = 60;
+// ====================
 
-L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: 'Data &copy; OpenStreetMap contributors | Border &copy; BharAtlas (LGD)',
+const INDIA = [[6.5, 68.1], [35.7, 97.4]];
+const statusEl = document.getElementById("status");
+
+const map = L.map("map", { minZoom: 3, maxZoom: 19 }).fitBounds(INDIA);
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 19,
-  maxNativeZoom: 19
+  attribution: "&copy; OpenStreetMap contributors | Border &copy; BharAtlas (LGD)"
 }).addTo(map);
 
-fetch('india_boundary.geojson')
-  .then(r => {
-    if(!r.ok) throw new Error('BharAtlas file not found');
-    return r.json();
-  })
-  .then(data => {
-    L.geoJSON(data, {
-      style: { color: '#333333', weight: 1, opacity: 0.6, fillOpacity: 0 }
-    }).addTo(map);
-  })
-  .catch(() => {
-    fetch('https://raw.githubusercontent.com/dattahub/india-geojson/master/india.json')
-      .then(r => r.json())
-      .then(data => {
-        L.geoJSON(data, {
-          style: { color: '#333333', weight: 1, opacity: 0.6, fillOpacity: 0 }
-        }).addTo(map);
+fetch("india_boundary.min.geojson")
+  .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+  .then(data => L.geoJSON(data, { interactive: false,
+    style: { color: "#333", weight: 1.2, opacity: 0.7, fillOpacity: 0 } }).addTo(map))
+  .catch(() => {});
+
+const cluster = L.markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 40 });
+map.addLayer(cluster);
+const css = getComputedStyle(document.documentElement);
+const COLORS = { gps: css.getPropertyValue("--gps").trim(), manual: css.getPropertyValue("--manual").trim() };
+let accCircle = null;
+
+// Build popup with textContent so names can never inject HTML.
+function popup(p) {
+  const el = document.createElement("div");
+  el.className = "pop";
+  const add = (tag, text) => { const n = document.createElement(tag); n.textContent = text; el.appendChild(n); };
+  add("b", p.name || "Anonymous");
+  add("div", "Lat: " + p.lat.toFixed(6));
+  add("div", "Lon: " + p.lng.toFixed(6));
+  add("div", "Accuracy: " + (p.source === "manual" ? "placed by hand on map" : p.acc + " meters"));
+  add("div", "Time: " + (p.time || "–"));
+  return el;
+}
+
+async function load(first) {
+  try {
+    const r = await fetch(SCRIPT_URL + "?action=list&t=" + Date.now());
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || "Couldn't load pins");
+    cluster.clearLayers();
+    for (const p of j.points) {
+      const m = L.circleMarker([p.lat, p.lng], {
+        radius: 7, weight: 2, color: "#fff", fillColor: COLORS[p.source] || COLORS.gps, fillOpacity: 1
+      }).bindPopup(popup(p));
+      m.on("popupopen", () => {
+        if (p.source === "gps" && p.acc > 0) {
+          accCircle = L.circle([p.lat, p.lng], { radius: p.acc, color: COLORS.gps, weight: 1, fillOpacity: 0.08, interactive: false }).addTo(map);
+        }
       });
-  });
-
-setTimeout(() => { map.invalidateSize(); }, 500);
-
-fetch(CSV_URL).then(r=>r.text()).then(text=>{
-  const rows = text.trim().split('\n').slice(1);
-  rows.forEach(row=>{
-    const cols = row.split(',');
-    const name = cols[0];
-    const lat = parseFloat(cols[1]);
-    const lng = parseFloat(cols[2]);
-    const timeRaw = cols[3];
-    const acc = cols[4] ? parseInt(cols[4]) : 0;
-    if(!isNaN(lat) && !isNaN(lng)){
-      const popup = "<b>" + name + "</b><br>" +
-        "Lat: " + lat.toFixed(6) + "<br>" +
-        "Lon: " + lng.toFixed(6) + "<br>" +
-        "Accuracy: " + acc + " meters<br>" +
-        "Time: " + timeRaw;
-      L.marker([lat,lng]).addTo(map).bindPopup(popup);
+      m.on("popupclose", () => { if (accCircle) { map.removeLayer(accCircle); accCircle = null; } });
+      cluster.addLayer(m);
     }
-  });
-});
+    const n = j.points.length;
+    statusEl.className = "muted";
+    statusEl.textContent = n + (n === 1 ? " person" : " people") + " · updated " +
+      new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  } catch (e) {
+    statusEl.className = "err";
+    statusEl.textContent = "Couldn't load pins. Retrying in " + REFRESH_SECONDS + " s.";
+  }
+}
+
+document.getElementById("fit").onclick = () => {
+  const b = cluster.getBounds();
+  if (b.isValid()) map.fitBounds(b.pad(0.1), { maxZoom: 14 }); else map.fitBounds(INDIA);
+};
+
+load(true);
+setInterval(load, REFRESH_SECONDS * 1000);
 </script>
 </body>
 </html>
