@@ -5,10 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Group Map</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <style>
   :root { --panel: rgba(255,255,255,.95); --text: #15171c; --muted: #5a6170; --border: #dfe3e9;
           --gps: #2563eb; --manual: #d97706; --err: #b42318; }
@@ -27,6 +24,8 @@
   .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; border: 1.5px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.25); }
   .panel button { margin-top: 8px; font: inherit; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border);
                   background: transparent; color: var(--text); cursor: pointer; }
+  .pin { background: none; border: none; }
+  .pin svg { display: block; filter: drop-shadow(0 1px 1.5px rgba(0,0,0,.4)); }
   .pop b { font-size: 15px; }
   .pop div { color: #555; margin-top: 2px; }
 </style>
@@ -63,11 +62,23 @@ fetch("india_boundary.min.geojson")
     style: { color: "#333", weight: 1.2, opacity: 0.7, fillOpacity: 0 } }).addTo(map))
   .catch(() => {});
 
-const cluster = L.markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 40 });
-map.addLayer(cluster);
+const pins = L.featureGroup().addTo(map);
 const css = getComputedStyle(document.documentElement);
 const COLORS = { gps: css.getPropertyValue("--gps").trim(), manual: css.getPropertyValue("--manual").trim() };
 let accCircle = null;
+
+// Teardrop pin icon (SVG), tip anchored at the exact location. One icon per color.
+const ICONS = {};
+function pinIcon(color) {
+  return ICONS[color] || (ICONS[color] = L.divIcon({
+    className: "pin",
+    html: '<svg width="24" height="36" viewBox="0 0 24 36" aria-hidden="true">' +
+          '<path d="M12 1C5.9 1 1 5.9 1 12c0 8.3 11 23 11 23s11-14.7 11-23C23 5.9 18.1 1 12 1z" ' +
+          'fill="' + color + '" stroke="#fff" stroke-width="2"/>' +
+          '<circle cx="12" cy="12" r="4" fill="#fff"/></svg>',
+    iconSize: [24, 36], iconAnchor: [12, 35], popupAnchor: [0, -32]
+  }));
+}
 
 // Build popup with textContent so names can never inject HTML.
 function popup(p) {
@@ -87,10 +98,10 @@ async function load(first) {
     const r = await fetch(SCRIPT_URL + "?action=list&t=" + Date.now());
     const j = await r.json();
     if (!j.ok) throw new Error(j.error || "Couldn't load pins");
-    cluster.clearLayers();
+    pins.clearLayers();
     for (const p of j.points) {
-      const m = L.circleMarker([p.lat, p.lng], {
-        radius: 7, weight: 2, color: "#fff", fillColor: COLORS[p.source] || COLORS.gps, fillOpacity: 1
+      const m = L.marker([p.lat, p.lng], {
+        icon: pinIcon(COLORS[p.source] || COLORS.gps), title: p.name || "Anonymous", riseOnHover: true
       }).bindPopup(popup(p));
       m.on("popupopen", () => {
         if (p.source === "gps" && p.acc > 0) {
@@ -98,7 +109,7 @@ async function load(first) {
         }
       });
       m.on("popupclose", () => { if (accCircle) { map.removeLayer(accCircle); accCircle = null; } });
-      cluster.addLayer(m);
+      pins.addLayer(m);
     }
     const n = j.points.length;
     statusEl.className = "muted";
@@ -111,7 +122,7 @@ async function load(first) {
 }
 
 document.getElementById("fit").onclick = () => {
-  const b = cluster.getBounds();
+  const b = pins.getBounds();
   if (b.isValid()) map.fitBounds(b.pad(0.1), { maxZoom: 14 }); else map.fitBounds(INDIA);
 };
 
