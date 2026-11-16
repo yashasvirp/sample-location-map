@@ -4,66 +4,429 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Group Map</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
-  :root { --pin: #2563eb; }
-  html, body, #map { height: 100%; margin: 0; }
-  body { background: #e8ebef; font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-  .pin { background: none; border: none; }
-  .pin svg { display: block; filter: drop-shadow(0 1px 1.5px rgba(0,0,0,.4)); }
-  .pop b { font-size: 15px; }
-  .pop div { color: #555; margin-top: 2px; }
+  :root {
+    --bg: #f5f8fc; --panel: #ffffff; --border: #d5deeb; --border-soft: #e4ebf4;
+    --text: #0f172a; --text-2: #475569; --text-3: #7c8aa0;
+    --pin: #2563eb; --pin-soft: rgba(37, 99, 235, 0.10);
+    --land-top: #eaf0f9; --land-bottom: #dde6f2; --coast: #8ea3c2;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background:
+      radial-gradient(1100px 620px at 78% -8%, rgba(41, 171, 226, 0.12), transparent 62%),
+      radial-gradient(900px 560px at 12% 4%, rgba(126, 34, 206, 0.07), transparent 60%),
+      var(--bg);
+    color: var(--text);
+    font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 28px 16px 40px; }
+  .head { margin: 0 0 18px; }
+  h1 { font-size: clamp(24px, 4vw, 32px); line-height: 1.2; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .sub { margin: 0; color: var(--text-2); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .live { width: 8px; height: 8px; border-radius: 50%; background: #16a34a; box-shadow: 0 0 0 3px rgba(22,163,74,.18); flex: none; }
+  .live.off { background: #c2410c; box-shadow: 0 0 0 3px rgba(194,65,12,.18); }
+
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 18px; align-items: start; }
+  @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+
+  .board, .panel { background: var(--panel); border: 1px solid var(--border-soft); border-radius: 20px;
+                   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06); }
+  .board { position: relative; padding: 10px; overflow: hidden; }
+  .map { display: block; width: 100%; height: auto; max-height: calc(100vh - 150px); min-height: 320px;
+         touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+  .map.dragging { cursor: grabbing; }
+  .map:focus { outline: none; }
+  .map .node { cursor: pointer; outline: none; transition: opacity .18s ease; }
+  .map .node.is-dim { opacity: .3; }
+  .map .grow { transform-box: fill-box; transform-origin: 50% 100%; transition: transform .18s ease; }
+  .map .node.is-on .grow, .map .node:focus-visible .grow { transform: scale(1.3); }
+
+  .zoom { position: absolute; top: 18px; right: 18px; display: flex; flex-direction: column;
+          background: var(--panel); border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
+          box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08); }
+  .zoom button { width: 36px; height: 36px; border: 0; background: none; color: var(--text-2); font: 600 18px/1 inherit;
+                 cursor: pointer; display: grid; place-items: center; }
+  .zoom button + button { border-top: 1px solid var(--border-soft); }
+  .zoom button:hover { background: var(--bg); color: var(--text); }
+  .zoom button:disabled { opacity: .35; cursor: default; background: none; }
+  .hint { position: absolute; left: 20px; bottom: 16px; margin: 0; font-size: 12.5px; color: var(--text-3); pointer-events: none; }
+
+  .tip { position: absolute; z-index: 5; min-width: 150px; max-width: 240px; padding: 10px 12px; border-radius: 12px;
+         background: #ffffff; border: 1.5px solid var(--pin); box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14);
+         pointer-events: none; transform: translate(-50%, calc(-100% - 38px)); }
+  .tip.below { transform: translate(-50%, 16px); }
+  .tip b { display: block; font-size: 14.5px; font-weight: 650; overflow-wrap: anywhere; }
+  .tip span { display: block; font-size: 12.5px; font-weight: 600; color: var(--pin); margin-top: 1px; }
+  .tip small { display: block; font-size: 12px; color: var(--text-3); margin-top: 2px; }
+
+  .panel { padding: 16px 12px 12px; display: flex; flex-direction: column; max-height: calc(100vh - 130px); min-height: 0; }
+  @media (max-width: 860px) { .panel { max-height: none; } }
+  .panel h2 { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-2);
+              margin: 0 4px 10px; display: flex; align-items: center; gap: 8px; }
+  .pill { font-size: 12px; letter-spacing: 0; color: var(--pin); background: var(--pin-soft); padding: 1px 8px; border-radius: 99px; }
+  #q { width: 100%; margin: 0 0 8px; padding: 9px 12px; font: inherit; font-size: 14px; color: var(--text);
+       background: var(--bg); border: 1px solid var(--border); border-radius: 10px; }
+  .list { list-style: none; margin: 0; padding: 0; overflow-y: auto; min-height: 0; }
+  @media (max-width: 860px) { .list { max-height: 360px; } }
+  .list button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 0; border-radius: 10px;
+                 background: none; font: inherit; text-align: left; color: var(--text); cursor: pointer; }
+  .list button:hover, .list button.is-on { background: var(--pin-soft); }
+  .list .dot { width: 12px; height: 18px; flex: none; }
+  .list .who { min-width: 0; }
+  .list .nm { display: block; font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .list .nm.anon { color: var(--text-3); font-weight: 500; }
+  .list .when { display: block; font-size: 12px; color: var(--text-3); }
+  .empty, .fine { color: var(--text-3); font-size: 13px; margin: 8px 4px 0; }
 </style>
 </head>
 <body>
-<div id="map"></div>
+<main class="wrap">
+  <header class="head">
+    <h1>📍 Where we all are</h1>
+    <p class="sub"><span id="live" class="live"></span><span id="stat">Loading pins…</span></p>
+  </header>
+
+  <div class="layout">
+    <section class="board">
+      <svg id="map" class="map" role="img" aria-label="Map of India showing everyone's pins">
+        <defs>
+          <linearGradient id="landFill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#eaf0f9"/>
+            <stop offset="100%" stop-color="#dde6f2"/>
+          </linearGradient>
+          <filter id="pinShadow" x="-50%" y="-50%" width="200%" height="200%">
+            <feDropShadow dx="0" dy="1" stdDeviation="1" flood-color="#0f172a" flood-opacity=".35"/>
+          </filter>
+        </defs>
+        <g id="world"></g>
+        <g id="pins"></g>
+      </svg>
+      <div class="zoom">
+        <button id="z-in" type="button" aria-label="Zoom in">+</button>
+        <button id="z-out" type="button" aria-label="Zoom out">−</button>
+        <button id="z-reset" type="button" aria-label="Show all of India" title="Show all of India">⤢</button>
+      </div>
+      <div id="tip" class="tip" hidden></div>
+      <p class="hint" id="hint"></p>
+    </section>
+
+    <aside class="panel">
+      <h2>People <span id="count" class="pill">0</span></h2>
+      <input id="q" type="search" placeholder="Search names" aria-label="Search names" hidden>
+      <ul id="list" class="list"></ul>
+      <p id="empty" class="empty" hidden></p>
+      <p id="outside" class="fine" hidden></p>
+    </aside>
+  </div>
+</main>
+
+<script src="india-map.js"></script>
 <script>
 // ===== Settings =====
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbydnT4CDPnsEf2rCL-AiQ-DLCSaE_ltiR1q7K77G9hHb7SHwk4LoT7Ef_YTQLDRwlYt/exec";
 const REFRESH_SECONDS = 60;
 // ====================
 
-const INDIA = [[6.5, 68.1], [35.7, 97.4]];
+const $ = id => document.getElementById(id);
+const NS = "http://www.w3.org/2000/svg";
+const { WIDTH: W, HEIGHT: H, project } = window.IndiaMap;
+const PAD = 14;                      // breathing room around the outline
+const MAX_ZOOM = 60;
+const svg = $("map"), world = $("world"), pinLayer = $("pins"), tip = $("tip");
+const isTouch = matchMedia("(pointer: coarse)").matches;
+$("hint").textContent = isTouch ? "Pinch to zoom · drag to move" : "Scroll to zoom · drag to move";
 
-const map = L.map("map", { minZoom: 3, maxZoom: 19 }).fitBounds(INDIA);
-L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  maxZoom: 19,
-  attribution: "&copy; OpenStreetMap contributors | Border &copy; BharAtlas (LGD)"
-}).addTo(map);
+svg.setAttribute("viewBox", `${-PAD} ${-PAD} ${W + PAD * 2} ${H + PAD * 2}`);
 
-fetch("india_boundary.min.geojson")
-  .then(r => { if (!r.ok) throw new Error(); return r.json(); })
-  .then(data => L.geoJSON(data, { interactive: false,
-    style: { color: "#333", weight: 1.2, opacity: 0.7, fillOpacity: 0 } }).addTo(map))
-  .catch(() => {});
+function el(tag, attrs, parent) {
+  const n = document.createElementNS(NS, tag);
+  for (const k in attrs) n.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(n);
+  return n;
+}
 
-const pins = L.featureGroup().addTo(map);
-const PIN_COLOR = getComputedStyle(document.documentElement).getPropertyValue("--pin").trim();
-let accCircle = null;
+// ---------- India outline (same shapes and projection as the conclave map) ----------
+// Order: land fill, then thin state borders (clipped to the land), then the national border on top.
+const LINE = { fill: "none", "stroke-linejoin": "round", "vector-effect": "non-scaling-stroke" };
+const outline = [IndiaMap.mainlandPath(), ...IndiaMap.islandPaths()];
+const clip = el("clipPath", { id: "landClip" }, world);
+for (const d of outline) {
+  el("path", { d, fill: "url(#landFill)" }, world);
+  el("path", { d }, clip);
+}
+const stateLayer = el("g", { "clip-path": "url(#landClip)" }, world);
+for (const s of IndiaMap.statePaths()) {
+  el("title", {}, el("path", { ...LINE, d: s.d, stroke: "#a5b6ce", "stroke-width": 0.9 }, stateLayer)).textContent = s.name;
+}
+outline.forEach((d, i) => el("path", { ...LINE, d, stroke: "#8ea3c2", "stroke-width": i ? 1 : 1.3 }, world));
 
-// Teardrop pin icon (SVG), tip anchored at the exact location.
-const PIN_ICON = L.divIcon({
-  className: "pin",
-  html: '<svg width="24" height="36" viewBox="0 0 24 36" aria-hidden="true">' +
-        '<path d="M12 1C5.9 1 1 5.9 1 12c0 8.3 11 23 11 23s11-14.7 11-23C23 5.9 18.1 1 12 1z" ' +
-        'fill="' + PIN_COLOR + '" stroke="#fff" stroke-width="2"/>' +
-        '<circle cx="12" cy="12" r="4" fill="#fff"/></svg>',
-  iconSize: [24, 36], iconAnchor: [12, 35], popupAnchor: [0, -32]
+// ---------- View (zoom + pan) ----------
+// Land is scaled with a transform; pins are re-positioned so they stay the same size at any zoom.
+const view = { k: 1, tx: 0, ty: 0 };
+const clampView = v => {
+  v.k = Math.min(MAX_ZOOM, Math.max(1, v.k));
+  v.tx = Math.min(0, Math.max(W * (1 - v.k), v.tx));
+  v.ty = Math.min(0, Math.max(H * (1 - v.k), v.ty));
+  return v;
+};
+// Pins closer than this (in map units) overlap, so they're grouped and the top one shows a count.
+const STACK_DIST = 7;
+function draw() {
+  world.setAttribute("transform", `translate(${view.tx} ${view.ty}) scale(${view.k})`);
+  const groups = [];
+  for (const p of people) {
+    p.sx = p.x * view.k + view.tx; p.sy = p.y * view.k + view.ty;
+    p.node.setAttribute("transform", `translate(${p.sx.toFixed(2)} ${p.sy.toFixed(2)})`);
+    const g = groups.find(g => Math.hypot(g[0].sx - p.sx, g[0].sy - p.sy) < STACK_DIST);
+    if (g) g.push(p); else groups.push([p]);
+  }
+  for (const g of groups) for (const p of g) {
+    p.stack = g;
+    const top = p === g[g.length - 1] && g.length > 1;   // last in DOM order draws on top
+    p.badge.style.display = top ? "" : "none";
+    if (top) p.badge.lastChild.textContent = g.length;
+  }
+  $("z-out").disabled = $("z-reset").disabled = view.k <= 1.001;
+  $("z-in").disabled = view.k >= MAX_ZOOM - 0.001;
+  placeTip();
+}
+function zoomAt(sx, sy, factor) {
+  const k = Math.min(MAX_ZOOM, Math.max(1, view.k * factor)), f = k / view.k;
+  view.tx = sx - (sx - view.tx) * f; view.ty = sy - (sy - view.ty) * f; view.k = k;
+  clampView(view); draw();
+}
+let anim = 0;
+function animateTo(target, ms = 380) {
+  clampView(target);
+  const from = { ...view }, t0 = performance.now(), id = ++anim;
+  const ease = t => 1 - Math.pow(1 - t, 3);
+  (function step(now) {
+    if (id !== anim) return;
+    const t = Math.min(1, (now - t0) / ms), e = ease(t);
+    view.k = from.k * Math.pow(target.k / from.k, e);   // log-space feels even
+    view.tx = from.tx + (target.tx - from.tx) * e;
+    view.ty = from.ty + (target.ty - from.ty) * e;
+    draw();
+    if (t < 1) requestAnimationFrame(step);
+  })(t0);
+}
+function focusOn(p, k) {
+  animateTo({ k, tx: W / 2 - p.x * k, ty: H / 2 - p.y * k });
+}
+// Client (screen) point -> SVG viewBox point.
+function toSvg(cx, cy) {
+  const pt = svg.createSVGPoint(); pt.x = cx; pt.y = cy;
+  return pt.matrixTransform(svg.getScreenCTM().inverse());
+}
+const centre = () => ({ x: W / 2, y: H / 2 });
+$("z-in").onclick = () => { const c = centre(); anim++; zoomAt(c.x, c.y, 2); };
+$("z-out").onclick = () => { const c = centre(); anim++; zoomAt(c.x, c.y, 0.5); };
+$("z-reset").onclick = () => animateTo({ k: 1, tx: 0, ty: 0 });
+
+svg.addEventListener("wheel", e => {
+  e.preventDefault(); anim++;
+  const dy = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1);
+  const p = toSvg(e.clientX, e.clientY);
+  zoomAt(p.x, p.y, Math.exp(-dy * 0.0022));
+}, { passive: false });
+svg.addEventListener("dblclick", e => {
+  if (e.target.closest(".node")) return;
+  const p = toSvg(e.clientX, e.clientY);
+  animateTo({ k: view.k * 2.5, tx: p.x - (p.x - view.tx) * 2.5, ty: p.y - (p.y - view.ty) * 2.5 }, 280);
 });
 
-// Build popup with textContent so names can never inject HTML.
-function popup(p) {
-  const el = document.createElement("div");
-  el.className = "pop";
-  const add = (tag, text) => { const n = document.createElement(tag); n.textContent = text; el.appendChild(n); };
-  add("b", p.name || "Anonymous");
-  add("div", "Lat: " + p.lat.toFixed(6));
-  add("div", "Lon: " + p.lng.toFixed(6));
-  add("div", "Accuracy: " + (p.source === "manual" ? "placed by hand on map" : p.acc + " meters"));
-  add("div", "Time: " + (p.time || "–"));
-  return el;
+// Drag to pan, two fingers to pinch. A short tap still counts as a click.
+const ptrs = new Map();
+let gesture = null, dragged = false;
+function startGesture() {
+  const pts = [...ptrs.values()];
+  if (pts.length === 1) gesture = { kind: "pan", last: toSvg(pts[0].x, pts[0].y) };
+  else if (pts.length >= 2) {
+    const a = toSvg(pts[0].x, pts[0].y), b = toSvg(pts[1].x, pts[1].y);
+    gesture = { kind: "pinch", dist: Math.hypot(a.x - b.x, a.y - b.y), mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } };
+  } else gesture = null;
 }
+svg.addEventListener("pointerdown", e => {
+  if (e.pointerType === "mouse" && e.button !== 0) return;
+  anim++;
+  ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY });
+  if (ptrs.size === 1) dragged = false;
+  startGesture();
+});
+svg.addEventListener("pointermove", e => {
+  const ptr = ptrs.get(e.pointerId);
+  if (!ptr || !gesture) return;
+  ptr.x = e.clientX; ptr.y = e.clientY;
+  if (!dragged && Math.hypot(ptr.x - ptr.x0, ptr.y - ptr.y0) < 5 && ptrs.size === 1) return;
+  if (!dragged) { dragged = true; svg.classList.add("dragging"); try { svg.setPointerCapture(e.pointerId); } catch (_) {} }
+  const pts = [...ptrs.values()];
+  if (gesture.kind === "pan") {
+    const p = toSvg(pts[0].x, pts[0].y);
+    view.tx += p.x - gesture.last.x; view.ty += p.y - gesture.last.y;
+    gesture.last = p; clampView(view); draw();
+  } else {
+    const a = toSvg(pts[0].x, pts[0].y), b = toSvg(pts[1].x, pts[1].y);
+    const dist = Math.hypot(a.x - b.x, a.y - b.y), mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    view.tx += mid.x - gesture.mid.x; view.ty += mid.y - gesture.mid.y;
+    zoomAt(mid.x, mid.y, dist / (gesture.dist || dist));
+    gesture.dist = dist; gesture.mid = mid;
+  }
+});
+const endPtr = e => {
+  if (!ptrs.delete(e.pointerId)) return;
+  startGesture();
+  if (!ptrs.size) svg.classList.remove("dragging");
+};
+svg.addEventListener("pointerup", endPtr);
+svg.addEventListener("pointercancel", endPtr);
+
+// ---------- Pins ----------
+let people = [];          // { key, name, time, acc, source, lat, lng, x, y, node, item }
+let hovered = null, selected = null;
+const keyOf = p => p.name + "|" + p.lat + "|" + p.lng;
+const inIndia = p => p.lat > 5 && p.lat < 38 && p.lng > 67 && p.lng < 99;
+
+function fmtTime(s) {
+  const d = new Date(String(s).replace(" ", "T") + "+05:30");
+  if (isNaN(d)) return s || "";
+  return d.toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" });
+}
+const howPlaced = p => p.source === "manual" ? "Placed by hand" : "GPS · ±" + p.acc + " m";
+
+function setActive() {
+  const cur = hovered || selected;
+  for (const p of people) {
+    const on = cur === p;
+    p.node.classList.toggle("is-on", on);
+    p.node.classList.toggle("is-dim", !!cur && !on);
+    if (p.item) p.item.classList.toggle("is-on", on);
+  }
+  // No re-ordering of pin nodes here: moving a node mid-press cancels its click.
+  placeTip();
+}
+function placeTip() {
+  const cur = hovered || selected;
+  if (!cur) { tip.hidden = true; return; }
+  tip.replaceChildren();
+  const add = (tag, text) => { const n = document.createElement(tag); n.textContent = text; tip.appendChild(n); };
+  const stack = cur.stack || [cur];
+  if (stack.length > 1 && !cur.fromList) {   // from the list: show that one person
+    add("b", stack.length + " people here");
+    const names = stack.map(p => p.name || "Anonymous");
+    add("span", names.slice(0, 6).join(", ") + (names.length > 6 ? " +" + (names.length - 6) + " more" : ""));
+    add("small", (isTouch ? "Tap" : "Click") + " to zoom in");
+  } else {
+    add("b", cur.name || "Anonymous");
+    add("span", (cur.state ? cur.state + " · " : "") + howPlaced(cur));
+    if (cur.time) add("small", "Added " + fmtTime(cur.time));
+  }
+  // Pin position on screen, relative to the board.
+  const m = svg.getScreenCTM(), b = svg.parentNode.getBoundingClientRect();
+  const x = m.a * cur.sx + m.e - b.left, y = m.d * cur.sy + m.f - b.top;
+  tip.hidden = false;
+  const halfW = tip.offsetWidth / 2;
+  tip.style.left = Math.min(b.width - halfW - 8, Math.max(halfW + 8, x)) + "px";
+  tip.style.top = y + "px";
+  tip.classList.toggle("below", y - tip.offsetHeight - 24 < 0);
+}
+
+svg.addEventListener("pointerover", e => {
+  if (e.pointerType !== "mouse" || ptrs.size) return;
+  const n = e.target.closest(".node");
+  hovered = n ? people.find(p => p.node === n) || null : null;
+  if (hovered) hovered.fromList = false;
+  setActive();
+});
+svg.addEventListener("pointerleave", () => { if (hovered) { hovered = null; setActive(); } });
+svg.addEventListener("click", e => {
+  if (dragged) return;
+  const n = e.target.closest(".node");
+  const p = n ? people.find(q => q.node === n) || null : null;
+  // Tapping a stack zooms in until its pins separate.
+  if (p && p.stack && p.stack.length > 1 && view.k < MAX_ZOOM) {
+    const pt = { x: p.stack.reduce((s, q) => s + q.x, 0) / p.stack.length, y: p.stack.reduce((s, q) => s + q.y, 0) / p.stack.length };
+    selected = hovered = null; setActive();
+    return focusOn(pt, view.k * 4);
+  }
+  if (p) p.fromList = false;
+  selected = p;
+  setActive();
+});
+svg.addEventListener("keydown", e => {
+  const n = e.target.closest && e.target.closest(".node");
+  if (n && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); selected = people.find(p => p.node === n); setActive(); }
+});
+svg.addEventListener("focusin", e => {
+  const n = e.target.closest(".node");
+  if (n && n.matches(":focus-visible")) { selected = people.find(p => p.node === n) || null; setActive(); }   // keyboard only
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape" && selected) { selected = null; setActive(); } });
+window.addEventListener("resize", placeTip);
+
+function makePin(p) {
+  const g = el("g", { class: "node", tabindex: 0, role: "button", "aria-label": (p.name || "Anonymous") + ", " + howPlaced(p) });
+  el("title", {}, g).textContent = p.name || "Anonymous";
+  // Teardrop pin, tip on the exact location (0, 0); about 17 x 25 map units.
+  el("ellipse", { rx: 4, ry: 1.5, fill: "#0f172a", opacity: 0.22 }, g);
+  const grow = el("g", { class: "grow" }, g);
+  const shape = el("g", { transform: "scale(0.7) translate(-12 -35)", filter: "url(#pinShadow)" }, grow);
+  el("path", { d: "M12 1C5.9 1 1 5.9 1 12c0 8.3 11 23 11 23s11-14.7 11-23C23 5.9 18.1 1 12 1z",
+               fill: "var(--pin)", stroke: "#ffffff", "stroke-width": 2 }, shape);
+  el("circle", { cx: 12, cy: 12, r: 4.2, fill: "#ffffff" }, shape);
+  p.badge = el("g", { class: "badge", transform: "translate(9 -25)", style: "display:none" }, g);
+  el("circle", { r: 8, fill: "#ffffff", stroke: "var(--pin)", "stroke-width": 1.5 }, p.badge);
+  el("text", { "text-anchor": "middle", y: 3.5, "font-size": 10, "font-weight": 700, fill: "var(--pin)" }, p.badge);
+  return g;
+}
+
+// Furthest two people, for the "spread" line in the header.
+function spreadKm(list) {
+  const R = 6371, rad = Math.PI / 180;
+  let best = 0;
+  for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
+    const a = list[i], b = list[j];
+    const h = Math.sin((b.lat - a.lat) * rad / 2) ** 2 +
+              Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin((b.lng - a.lng) * rad / 2) ** 2;
+    best = Math.max(best, 2 * R * Math.asin(Math.sqrt(h)));
+  }
+  return Math.round(best);
+}
+
+function renderList() {
+  const q = $("q").value.trim().toLowerCase();
+  const list = $("list");
+  list.replaceChildren();
+  const sorted = [...people].sort((a, b) =>
+    (!a.name - !b.name) || a.name.localeCompare(b.name, undefined, { sensitivity: "base" }) || (b.time || "").localeCompare(a.time || ""));
+  let n = 0;
+  for (const p of sorted) {
+    p.item = null;
+    if (q && !p.name.toLowerCase().includes(q)) continue;
+    const li = document.createElement("li");
+    const btn = document.createElement("button");
+    btn.type = "button";
+    const dot = document.createElementNS(NS, "svg");
+    dot.setAttribute("class", "dot"); dot.setAttribute("viewBox", "0 0 24 36"); dot.setAttribute("aria-hidden", "true");
+    el("path", { d: "M12 1C5.9 1 1 5.9 1 12c0 8.3 11 23 11 23s11-14.7 11-23C23 5.9 18.1 1 12 1z", fill: "var(--pin)" }, dot);
+    el("circle", { cx: 12, cy: 12, r: 4.2, fill: "#ffffff" }, dot);
+    const who = document.createElement("span"); who.className = "who";
+    const nm = document.createElement("span"); nm.className = "nm" + (p.name ? "" : " anon"); nm.textContent = p.name || "Anonymous";
+    const when = document.createElement("span"); when.className = "when"; when.textContent = fmtTime(p.time);
+    who.append(nm, when); btn.append(dot, who); li.appendChild(btn); list.appendChild(li);
+    btn.onclick = () => { p.fromList = true; selected = p; setActive(); focusOn(p, Math.max(view.k, 12)); };
+    btn.onmouseenter = () => { p.fromList = true; hovered = p; setActive(); };
+    btn.onmouseleave = () => { hovered = null; setActive(); };
+    p.item = btn; n++;
+  }
+  $("empty").hidden = n > 0;
+  $("empty").textContent = people.length ? "No one matches “" + $("q").value.trim() + "”." : "No pins yet. Share the link to get started.";
+  setActive();
+}
+$("q").addEventListener("input", renderList);
 
 // On failure the current pins stay on the map and the next refresh tries again.
 async function load() {
@@ -71,24 +434,46 @@ async function load() {
     const r = await fetch(SCRIPT_URL + "?action=list&t=" + Date.now());
     const j = await r.json();
     if (!j.ok) throw new Error(j.error || "Couldn't load pins");
-    pins.clearLayers();
-    for (const p of j.points) {
-      const m = L.marker([p.lat, p.lng], {
-        icon: PIN_ICON, title: p.name || "Anonymous", riseOnHover: true
-      }).bindPopup(popup(p));
-      m.on("popupopen", () => {
-        if (p.source === "gps" && p.acc > 0) {
-          accCircle = L.circle([p.lat, p.lng], { radius: p.acc, color: PIN_COLOR, weight: 1, fillOpacity: 0.08, interactive: false }).addTo(map);
-        }
-      });
-      m.on("popupclose", () => { if (accCircle) { map.removeLayer(accCircle); accCircle = null; } });
-      pins.addLayer(m);
-    }
+    const all = j.points.map(p => ({ ...p, name: String(p.name || "").trim() }));
+    // North to south, so pins lower on the map draw over the heads of pins above them.
+    const shown = all.filter(inIndia).sort((a, b) => b.lat - a.lat);
+    const keepSel = selected && selected.key, keepHov = hovered && hovered.key;
+
+    pinLayer.replaceChildren();
+    people = shown.map(p => {
+      const { x, y } = project(p.lng, p.lat);
+      const q = { ...p, key: keyOf(p), x, y, state: IndiaMap.stateAt(p.lng, p.lat) };
+      q.node = makePin(q);
+      pinLayer.appendChild(q.node);
+      return q;
+    });
+    selected = people.find(p => p.key === keepSel) || null;
+    hovered = people.find(p => p.key === keepHov) || null;
+
+    const n = people.length;
+    $("count").textContent = n;
+    $("q").hidden = n < 8;
+    const km = spreadKm(people);
+    const states = new Set(people.map(p => p.state).filter(Boolean)).size;
+    $("stat").textContent = n === 0 ? "No pins yet"
+      : n + (n === 1 ? " person" : " people") + " on the map"
+        + (states > 1 ? " · " + states + " states & UTs" : "")
+        + (n > 1 && km > 0 ? " · up to " + km.toLocaleString("en-IN") + " km apart" : "");
+    $("live").classList.remove("off");
+    const out = all.length - shown.length;
+    $("outside").hidden = !out;
+    $("outside").textContent = out + (out === 1 ? " pin is" : " pins are") + " outside India and not shown.";
+
+    renderList();
+    draw();
   } catch (e) {
     console.warn("Couldn't load pins, retrying in " + REFRESH_SECONDS + " s.", e);
+    $("live").classList.add("off");
+    if (!people.length) $("stat").textContent = "Couldn't load pins. Retrying…";
   }
 }
 
+draw();
 load();
 setInterval(load, REFRESH_SECONDS * 1000);
 </script>

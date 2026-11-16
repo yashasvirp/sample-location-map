@@ -22,9 +22,10 @@ If they open the link again on the same phone or browser and save again, their e
 | File | What it is |
 | :--- | :--- |
 | `index.html` | Share page that members open |
-| `map.html` | Map of all pins |
+| `map.html` | Map of all pins, drawn in the same style as the ANRF conclave map |
+| `india-map.js` | India outline and map projection (ported from the conclave page), plus state/UT borders (DataMeet, via the Anumapi project, simplified to about 46 KB) |
 | `apps-script/Code.gs` | Backend. Paste it into Google Apps Script |
-| `india_boundary.min.geojson` | India border (LGD via BharAtlas), simplified to about 115 KB for phones |
+| `india_boundary.min.geojson` | India border (LGD via BharAtlas), simplified. No longer used by the pages |
 | `india_boundary.geojson` | Original full-detail border (7.5 MB), kept as the source |
 
 ## Setup
@@ -76,8 +77,13 @@ Then open `http://localhost:8000/`. This saves to the real Sheet, so delete test
 **On a phone:** push to GitHub, then send yourself the github.io link on WhatsApp.
 
 **The map:** open `map.html`. It refreshes every 60 seconds.
-- Blue pins come from GPS. Orange pins were placed or moved by hand.
-- Tap a pin to see the name, latitude, longitude, accuracy and time. A GPS pin also shows its accuracy circle.
+- It's a clean SVG map of India (official outline, including all of J&K, Andaman & Nicobar and Lakshadweep), with no street tiles.
+- Thin lines show state and UT borders. The header counts how many states & UTs have pins.
+- Hover or tap a pin to see the name, state, how it was placed (GPS ±m or by hand) and when.
+- Pins that overlap (for example, several people in one city) show a count. Tap the stack to zoom in until they separate.
+- Scroll or pinch to zoom and drag to move. **⤢** goes back to all of India.
+- The **People** list on the side zooms to a person when you tap their name. A search box appears once there are 8 or more people.
+- Pins outside India aren't drawn. The list says how many there are.
 
 ## Privacy
 
@@ -87,4 +93,4 @@ The share page promises members three things: "We only ask once", "You'll check 
 
 ## Tech
 
-Leaflet + OpenStreetMap tiles, Google Apps Script + Sheets, GitHub Pages. Place search on the share page uses OpenStreetMap Nominatim.
+Share page: Leaflet + OpenStreetMap tiles, with place search via OpenStreetMap Nominatim. Group map: plain SVG with a Lambert conformal conic projection, with no libraries. Backend: Google Apps Script + Sheets. Hosting: GitHub Pages.
